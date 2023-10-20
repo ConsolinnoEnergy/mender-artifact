@@ -15,7 +15,8 @@ include:
   - project: "Northern.tech/Mender/mendertesting"
     file: ".gitlab-ci-check-license.yml"
 
-image: golang:1.18-alpine3.16
+# Keep golang version aligned with latest yocto release
+image: golang:1.17-alpine3.16
 
 cache:
   paths:
@@ -92,6 +93,8 @@ test:smoketests:mac:
   needs:
     - job: build:make
       artifacts: true
+  before_script:
+    - export TEST_MENDER_ARTIFACT_PATH=./mender-artifact-darwin
   script:
     - touch test.txt
     - ./mender-artifact-darwin
@@ -102,6 +105,7 @@ test:smoketests:mac:
     - ./mender-artifact-darwin write rootfs-image -t test -o test-rfs.mender -n test -f test.txt
     - ./mender-artifact-darwin read test-rfs.mender
     - ./mender-artifact-darwin validate test-rfs.mender
+    - ./tests/test_compressions/test_supported_compressions.sh
     - make build
   tags:
     - mac-runner
@@ -127,6 +131,7 @@ test:smoketests:linux:
     - ./mender-artifact-linux write rootfs-image -t test -o test-rfs.mender -n test -f test.txt
     - ./mender-artifact-linux read test-rfs.mender
     - ./mender-artifact-linux validate test-rfs.mender
+    - ./tests/test_compressions/test_supported_compressions.sh
     # QA-507: lock mender-artifact to OpenSSL 1.1
     - ldd ./mender-artifact-linux | grep libssl.so.1.1
     - make build
@@ -189,7 +194,6 @@ test:unit:mac:
 
 publish:tests:
   stage: publish
-  image: golang:1.14-alpine3.11
   needs:
     - job: test:unit:linux
       artifacts: true
@@ -219,7 +223,7 @@ publish:tests:
     - goveralls
       -repotoken ${COVERALLS_TOKEN}
       -service gitlab-ci
-      -jobid $(git rev-parse HEAD)
+      -jobid $CI_PIPELINE_ID
       -parallel
       -covermode set
       -flagname unittests:$PLATFORM
